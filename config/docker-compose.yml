@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  prefect-server:
+    image: prefecthq/prefect:3.0.4-python3.11
+    environment:
+      PREFECT_ORION_API_HOST: 0.0.0.0
+    ports:
+      - "4200:4200"
+      - "8080:8080"
+    command: prefect orion start
+
+  prefect-agent:
+    image: prefecthq/prefect:3.0.4-python3.11
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+    command: prefect agent start --pool default-agent-pool
+    depends_on:
+      - prefect-server
+
+  app:
+    build:
+      context: .
+    volumes:
+      - ./data:/app/data
+    environment:
+      PREFECT_API_URL: http://prefect-server:4200/api
+    command: prefect deployment run my_parallel_flow
+    depends_on:
+      - prefect-agent
+      - prefect-server
+
+  # Optional: For notifications, you can add an environment variable for the Telegram Bot token
+  telegram-bot:
+    image: prefecthq/prefect:3.0.4-python3.11
+    environment:
+      TELEGRAM_BOT_TOKEN: "<your_bot_token>"
+      TELEGRAM_CHAT_ID: "<your_chat_id>"
+    command: python -m main
